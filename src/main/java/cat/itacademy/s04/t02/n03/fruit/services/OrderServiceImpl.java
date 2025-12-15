@@ -8,6 +8,9 @@ import cat.itacademy.s04.t02.n03.fruit.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Service
 @RequiredArgsConstructor
 public class OrderServiceImpl implements OrderService {
@@ -17,10 +20,19 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public OrderResponseDTO createOrder(OrderRequestDTO orderRequestDTO) {
-                Order order = orderMapper.toEntity(orderRequestDTO);
+        Order order = orderMapper.toEntity(orderRequestDTO);
 
-                Order savedOrder = orderRepository.save(order);
+        Order savedOrder = orderRepository.save(order);
 
-                return orderMapper.toResponseDTO(savedOrder);
+        return orderMapper.toResponseDTO(savedOrder);
+    }
+
+    @Override
+    public List<OrderResponseDTO> getAllOrders() {
+        List<Order> orders = orderRepository.findAll();
+
+        return orders.stream()
+                .map(orderMapper::toResponseDTO)
+                .collect(Collectors.toList());
     }
 }

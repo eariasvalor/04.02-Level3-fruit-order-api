@@ -120,6 +120,84 @@ class OrderServiceTest {
         assertThat(capturedOrder.getDeliveryDate()).isEqualTo(LocalDate.now().plusDays(1));
         assertThat(capturedOrder.getItems()).hasSize(2);
     }
+
+    @Test
+    @DisplayName("getAllOrders returns empty list when repository is empty")
+    void testGetAllOrders_WithEmptyRepository_ReturnsEmptyList() {
+                when(orderRepository.findAll()).thenReturn(List.of());
+
+                List<OrderResponseDTO> result = orderService.getAllOrders();
+
+                assertThat(result).isNotNull();
+        assertThat(result).isEmpty();
+        verify(orderRepository, times(1)).findAll();
+    }
+
+    @Test
+    @DisplayName("getAllOrders returns all orders from repository")
+    void testGetAllOrders_WithMultipleOrders_ReturnsAllOrders() {
+                Order order1 = new Order();
+        order1.setId("id-1");
+        order1.setClientName("John Doe");
+        order1.setDeliveryDate(LocalDate.now().plusDays(1));
+        order1.setItems(List.of(new OrderItem("Apple", 5)));
+
+        Order order2 = new Order();
+        order2.setId("id-2");
+        order2.setClientName("Jane Smith");
+        order2.setDeliveryDate(LocalDate.now().plusDays(2));
+        order2.setItems(List.of(new OrderItem("Banana", 3)));
+
+        OrderResponseDTO dto1 = new OrderResponseDTO();
+        dto1.setId("id-1");
+        dto1.setClientName("John Doe");
+
+        OrderResponseDTO dto2 = new OrderResponseDTO();
+        dto2.setId("id-2");
+        dto2.setClientName("Jane Smith");
+
+        when(orderRepository.findAll()).thenReturn(List.of(order1, order2));
+        when(orderMapper.toResponseDTO(order1)).thenReturn(dto1);
+        when(orderMapper.toResponseDTO(order2)).thenReturn(dto2);
+
+                List<OrderResponseDTO> result = orderService.getAllOrders();
+
+                assertThat(result).isNotNull();
+        assertThat(result).hasSize(2);
+        assertThat(result.get(0).getId()).isEqualTo("id-1");
+        assertThat(result.get(1).getId()).isEqualTo("id-2");
+        verify(orderRepository, times(1)).findAll();
+    }
+
+    @Test
+    @DisplayName("getAllOrders maps entities to DTOs correctly")
+    void testGetAllOrders_MapsEntitiesToDTOs() {
+                Order order = new Order();
+        order.setId("id-123");
+        order.setClientName("Test Client");
+        order.setDeliveryDate(LocalDate.now().plusDays(1));
+        order.setItems(List.of(new OrderItem("Orange", 10)));
+
+        OrderResponseDTO dto = new OrderResponseDTO();
+        dto.setId("id-123");
+        dto.setClientName("Test Client");
+        dto.setDeliveryDate(LocalDate.now().plusDays(1));
+        dto.setItems(List.of(new OrderItemDTO("Orange", 10)));
+
+        when(orderRepository.findAll()).thenReturn(List.of(order));
+        when(orderMapper.toResponseDTO(order)).thenReturn(dto);
+
+                List<OrderResponseDTO> result = orderService.getAllOrders();
+
+                assertThat(result).hasSize(1);
+        assertThat(result.get(0).getId()).isEqualTo("id-123");
+        assertThat(result.get(0).getClientName()).isEqualTo("Test Client");
+        assertThat(result.get(0).getItems()).hasSize(1);
+        assertThat(result.get(0).getItems().get(0).getFruitName()).isEqualTo("Orange");
+        assertThat(result.get(0).getItems().get(0).getQuantityInKilos()).isEqualTo(10);
+
+        verify(orderMapper, times(1)).toResponseDTO(order);
+    }
     
     private OrderRequestDTO createValidOrderRequest() {
         OrderItemDTO item1 = new OrderItemDTO();

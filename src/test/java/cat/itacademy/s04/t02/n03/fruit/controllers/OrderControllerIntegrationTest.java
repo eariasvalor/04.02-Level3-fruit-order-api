@@ -18,6 +18,7 @@ import java.util.List;
 
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @DisplayName("Order Controller Integration Tests - Create Order")
@@ -203,6 +204,63 @@ class OrderControllerIntegrationTest extends BaseIntegrationTest {
                         .content(objectMapper.writeValueAsString(orderRequest)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").exists());
+    }
+
+    @Test
+    @DisplayName("GET /orders returns 200 OK with empty list when no orders exist")
+    void testGetAllOrders_WithNoOrders_ReturnsEmptyList() throws Exception {
+        
+                mockMvc.perform(get("/orders")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$", hasSize(0)));
+    }
+
+    @Test
+    @DisplayName("GET /orders returns 200 OK with list of all orders")
+    void testGetAllOrders_WithMultipleOrders_ReturnsAllOrders() throws Exception {
+                OrderRequestDTO order1 = createValidOrderRequest();
+        OrderRequestDTO order2 = createValidOrderRequest();
+        order2.setClientName("Jane Smith");
+        order2.setDeliveryDate(LocalDate.now().plusDays(2));
+
+                mockMvc.perform(post("/orders")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(order1)));
+
+        mockMvc.perform(post("/orders")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(order2)));
+
+                mockMvc.perform(get("/orders")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[0].clientName").exists())
+                .andExpect(jsonPath("$[1].clientName").exists());
+    }
+
+    @Test
+    @DisplayName("GET /orders returns correct order data")
+    void testGetAllOrders_ReturnsCorrectOrderData() throws Exception {
+                OrderRequestDTO orderRequest = createValidOrderRequest();
+
+        mockMvc.perform(post("/orders")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(orderRequest)));
+
+                mockMvc.perform(get("/orders")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").exists())
+                .andExpect(jsonPath("$[0].clientName").value("John Doe"))
+                .andExpect(jsonPath("$[0].deliveryDate").value(LocalDate.now().plusDays(1).toString()))
+                .andExpect(jsonPath("$[0].items").isArray())
+                .andExpect(jsonPath("$[0].items", hasSize(2)))
+                .andExpect(jsonPath("$[0].items[0].fruitName").value("Apple"))
+                .andExpect(jsonPath("$[0].items[0].quantityInKilos").value(5));
     }
 
 
