@@ -21,6 +21,7 @@ import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @DisplayName("Order Controller Integration Tests - Create Order")
@@ -538,6 +539,62 @@ class OrderControllerIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.message").exists());
     }
 
+    @Test
+    @DisplayName("DELETE /orders/{id} with existing ID returns 204 No Content")
+    void testDeleteOrder_WithExistingId_Returns204() throws Exception {
+        OrderRequestDTO orderRequest = createValidOrderRequest();
+
+        String responseBody = mockMvc.perform(post("/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(orderRequest)))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        OrderResponseDTO createdOrder = objectMapper.readValue(responseBody, OrderResponseDTO.class);
+        String orderId = createdOrder.getId();
+
+        mockMvc.perform(delete("/orders/{id}", orderId)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    @DisplayName("DELETE /orders/{id} actually deletes the order")
+    void testDeleteOrder_ActuallyDeletesOrder() throws Exception {
+        OrderRequestDTO orderRequest = createValidOrderRequest();
+
+        String responseBody = mockMvc.perform(post("/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(orderRequest)))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        OrderResponseDTO createdOrder = objectMapper.readValue(responseBody, OrderResponseDTO.class);
+        String orderId = createdOrder.getId();
+
+        mockMvc.perform(delete("/orders/{id}", orderId)
+                .contentType(MediaType.APPLICATION_JSON));
+
+        mockMvc.perform(get("/orders/{id}", orderId)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").exists())
+                .andExpect(jsonPath("$.status").value(404));
+    }
+
+    @Test
+    @DisplayName("DELETE /orders/{id} with non-existing ID returns 404 Not Found")
+    void testDeleteOrder_WithNonExistingId_Returns404() throws Exception {
+        String nonExistingId = "507f1f77bcf86cd799439011";
+
+        mockMvc.perform(delete("/orders/{id}", nonExistingId)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").exists())
+                .andExpect(jsonPath("$.status").value(404));
+    }
 
     private OrderRequestDTO createValidOrderRequest() {
         OrderItemDTO item1 = new OrderItemDTO();
@@ -555,4 +612,5 @@ class OrderControllerIntegrationTest extends BaseIntegrationTest {
 
         return orderRequest;
     }
+
 }

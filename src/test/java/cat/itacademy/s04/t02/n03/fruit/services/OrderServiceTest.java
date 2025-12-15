@@ -15,6 +15,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import static org.mockito.Mockito.doNothing;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
@@ -367,6 +368,40 @@ class OrderServiceTest {
 
         Order capturedOrder = orderCaptor.getValue();
         assertThat(capturedOrder.getId()).isEqualTo(orderId);
+    }
+
+    @Test
+    @DisplayName("deleteOrder with existing ID calls repository.delete()")
+    void testDeleteOrder_WithExistingId_CallsRepositoryDelete() {
+        String orderId = "existing-id-123";
+
+        Order existingOrder = new Order();
+        existingOrder.setId(orderId);
+        existingOrder.setClientName("John Doe");
+        existingOrder.setDeliveryDate(LocalDate.now().plusDays(1));
+        existingOrder.setItems(List.of(new OrderItem("Apple", 5)));
+
+        when(orderRepository.findById(orderId)).thenReturn(java.util.Optional.of(existingOrder));
+        doNothing().when(orderRepository).delete(existingOrder);
+
+        orderService.deleteOrder(orderId);
+
+        verify(orderRepository, times(1)).findById(orderId);
+        verify(orderRepository, times(1)).delete(existingOrder);
+    }
+
+    @Test
+    @DisplayName("deleteOrder with non-existing ID throws OrderNotFoundException")
+    void testDeleteOrder_WithNonExistingId_ThrowsException() {
+        String nonExistingId = "non-existing-id";
+        when(orderRepository.findById(nonExistingId)).thenReturn(java.util.Optional.empty());
+
+        assertThatThrownBy(() -> orderService.deleteOrder(nonExistingId))
+                .isInstanceOf(OrderNotFoundException.class)
+                .hasMessageContaining("Order not found with id: " + nonExistingId);
+
+        verify(orderRepository, times(1)).findById(nonExistingId);
+        verify(orderRepository, never()).delete(any());
     }
 
     private OrderRequestDTO createValidOrderRequest() {
