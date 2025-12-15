@@ -100,6 +100,52 @@ API: http://localhost:8080
 ./mvnw test jacoco:report
 ```
 
+### Testcontainers: Real MongoDB in Tests
+
+**Why Testcontainers?**
+- Real MongoDB instance (not mocked or embedded)
+- Ensures tests match production behavior
+- Docker-based, isolated, and disposable
+- Automatically starts/stops containers
+
+**Configuration:**
+
+```java
+@TestConfiguration(proxyBeanMethods = false)
+public class TestContainersConfiguration {
+    
+    @Bean
+    @ServiceConnection
+    MongoDBContainer mongoDBContainer() {
+        return new MongoDBContainer(DockerImageName.parse("mongo:7.0"))
+                .withReuse(true); // Reuse container for faster tests
+    }
+}
+```
+
+**Usage in Tests:**
+
+```java
+@SpringBootTest
+@AutoConfigureMockMvc
+@Import(TestContainersConfiguration.class)
+public abstract class BaseIntegrationTest {
+    // All integration tests extend this class
+}
+```
+
+**What Happens:**
+1. Testcontainers starts MongoDB container before tests
+2. Spring connects to containerized MongoDB automatically
+3. Each test gets clean database (@BeforeEach cleans data)
+4. Container stops after all tests complete
+
+**Benefits:**
+- ✅ Tests use real MongoDB (no mocks)
+- ✅ Tests verify actual database operations
+- ✅ Catches MongoDB-specific issues
+- ✅ No need for local MongoDB installation
+
 ---
 
 ## 📋 API Examples
@@ -160,6 +206,49 @@ curl -X DELETE http://localhost:8080/orders/{id}
 - **items:** Required, at least one item
 - **fruitName:** Required, not blank
 - **quantityInKilos:** Required, positive number
+
+### Custom Validation: @FutureDate
+
+Custom annotation that validates delivery date must be **at least tomorrow**.
+
+**Implementation:**
+
+```java
+@Target({ElementType.FIELD, ElementType.PARAMETER})
+@Retention(RetentionPolicy.RUNTIME)
+@Constraint(validatedBy = FutureDateValidator.class)
+public @interface FutureDate {
+    String message() default "Delivery date must be at least tomorrow";
+    Class<?>[] groups() default {};
+    Class<? extends Payload>[] payload() default {};
+}
+```
+
+**Validator Logic:**
+
+```java
+public class FutureDateValidator implements ConstraintValidator<FutureDate, LocalDate> {
+    @Override
+    public boolean isValid(LocalDate date, ConstraintValidatorContext context) {
+        if (date == null) return true; // @NotNull handles null
+        LocalDate tomorrow = LocalDate.now().plusDays(1);
+        return !date.isBefore(tomorrow);
+    }
+}
+```
+
+**Usage in DTO:**
+
+```java
+@FutureDate(message = "Delivery date must be at least tomorrow")
+@NotNull(message = "Delivery date is required")
+private LocalDate deliveryDate;
+```
+
+**Why Custom Validation?**
+- `@Future` only checks if date is after now (allows today)
+- `@FutureDate` enforces business rule: minimum tomorrow
+- Reusable across multiple DTOs
 
 ### Error Response Example
 
@@ -246,9 +335,9 @@ src/
 │   ├── dto/
 │   ├── model/
 │   ├── services/
+│   ├── mapper/
 │   ├── repository/
 │   ├── exception/
-│   ├── mapper/
 │   └── validation/
 └── test/java/.../fruit/
     ├── config/
@@ -262,12 +351,14 @@ src/
 
 ✅ Full CRUD with MongoDB  
 ✅ Embedded documents (OrderItem in Order)  
-✅ Custom validation (@FutureDate)  
+✅ **Custom validation (@FutureDate with ConstraintValidator)**  
 ✅ Global exception handling  
 ✅ TDD Outside-In approach  
-✅ 46 tests with Testcontainers  
+✅ **46 tests with Testcontainers (real MongoDB)**  
 ✅ Multi-stage Docker build  
 ✅ Health checks configured  
+✅ DTOs with Bean Validation  
+✅ Dedicated mapper for conversions  
 
 ---
 
