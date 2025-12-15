@@ -1,0 +1,33 @@
+package cat.itacademy.s04.t02.n03.fruit.controllers;
+
+import cat.itacademy.s04.t02.n03.fruit.dto.OrderRequestDTO;
+import cat.itacademy.s04.t02.n03.fruit.dto.OrderResponseDTO;
+import cat.itacademy.s04.t02.n03.fruit.services.OrderService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+
+import java.net.URI;
+
+@RestController
+@RequestMapping("/orders")
+@RequiredArgsConstructor
+public class OrderController {
+
+    private final OrderService orderService;
+
+    @PostMapping
+    public ResponseEntity<OrderResponseDTO> createOrder(@Valid @RequestBody OrderRequestDTO orderRequestDTO) {
+                OrderResponseDTO createdOrder = orderService.createOrder(orderRequestDTO);
+
+                URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
+                .path("/{id}")
+                .buildAndExpand(createdOrder.getId())
+                .toUri();
+
+                return ResponseEntity.created(location).body(createdOrder);
+    }
+}
