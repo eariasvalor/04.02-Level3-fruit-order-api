@@ -3,6 +3,7 @@ package cat.itacademy.s04.t02.n03.fruit.controllers;
 import cat.itacademy.s04.t02.n03.fruit.config.BaseIntegrationTest;
 import cat.itacademy.s04.t02.n03.fruit.dto.OrderItemDTO;
 import cat.itacademy.s04.t02.n03.fruit.dto.OrderRequestDTO;
+import cat.itacademy.s04.t02.n03.fruit.dto.OrderResponseDTO;
 import cat.itacademy.s04.t02.n03.fruit.repository.OrderRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -209,8 +210,8 @@ class OrderControllerIntegrationTest extends BaseIntegrationTest {
     @Test
     @DisplayName("GET /orders returns 200 OK with empty list when no orders exist")
     void testGetAllOrders_WithNoOrders_ReturnsEmptyList() throws Exception {
-        
-                mockMvc.perform(get("/orders")
+
+        mockMvc.perform(get("/orders")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
@@ -220,12 +221,12 @@ class OrderControllerIntegrationTest extends BaseIntegrationTest {
     @Test
     @DisplayName("GET /orders returns 200 OK with list of all orders")
     void testGetAllOrders_WithMultipleOrders_ReturnsAllOrders() throws Exception {
-                OrderRequestDTO order1 = createValidOrderRequest();
+        OrderRequestDTO order1 = createValidOrderRequest();
         OrderRequestDTO order2 = createValidOrderRequest();
         order2.setClientName("Jane Smith");
         order2.setDeliveryDate(LocalDate.now().plusDays(2));
 
-                mockMvc.perform(post("/orders")
+        mockMvc.perform(post("/orders")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(order1)));
 
@@ -233,7 +234,7 @@ class OrderControllerIntegrationTest extends BaseIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(order2)));
 
-                mockMvc.perform(get("/orders")
+        mockMvc.perform(get("/orders")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
@@ -245,13 +246,13 @@ class OrderControllerIntegrationTest extends BaseIntegrationTest {
     @Test
     @DisplayName("GET /orders returns correct order data")
     void testGetAllOrders_ReturnsCorrectOrderData() throws Exception {
-                OrderRequestDTO orderRequest = createValidOrderRequest();
+        OrderRequestDTO orderRequest = createValidOrderRequest();
 
         mockMvc.perform(post("/orders")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(orderRequest)));
 
-                mockMvc.perform(get("/orders")
+        mockMvc.perform(get("/orders")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").exists())
@@ -261,6 +262,78 @@ class OrderControllerIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$[0].items", hasSize(2)))
                 .andExpect(jsonPath("$[0].items[0].fruitName").value("Apple"))
                 .andExpect(jsonPath("$[0].items[0].quantityInKilos").value(5));
+    }
+
+    @Test
+    @DisplayName("GET /orders/{id} with existing ID returns 200 OK")
+    void testGetOrderById_WithExistingId_Returns200() throws Exception {
+        OrderRequestDTO orderRequest = createValidOrderRequest();
+
+        String responseBody = mockMvc.perform(post("/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(orderRequest)))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        OrderResponseDTO createdOrder = objectMapper.readValue(responseBody, OrderResponseDTO.class);
+        String orderId = createdOrder.getId();
+
+        mockMvc.perform(get("/orders/{id}", orderId)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(orderId))
+                .andExpect(jsonPath("$.clientName").exists())
+                .andExpect(jsonPath("$.deliveryDate").exists())
+                .andExpect(jsonPath("$.items").exists());
+    }
+
+    @Test
+    @DisplayName("GET /orders/{id} with existing ID returns correct order data")
+    void testGetOrderById_WithExistingId_ReturnsCorrectData() throws Exception {
+        OrderRequestDTO orderRequest = createValidOrderRequest();
+
+        String responseBody = mockMvc.perform(post("/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(orderRequest)))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        OrderResponseDTO createdOrder = objectMapper.readValue(responseBody, OrderResponseDTO.class);
+        String orderId = createdOrder.getId();
+
+        mockMvc.perform(get("/orders/{id}", orderId)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(orderId))
+                .andExpect(jsonPath("$.clientName").value("John Doe"))
+                .andExpect(jsonPath("$.deliveryDate").value(LocalDate.now().plusDays(1).toString()))
+                .andExpect(jsonPath("$.items").isArray())
+                .andExpect(jsonPath("$.items", hasSize(2)))
+                .andExpect(jsonPath("$.items[0].fruitName").value("Apple"))
+                .andExpect(jsonPath("$.items[0].quantityInKilos").value(5));
+    }
+
+    @Test
+    @DisplayName("GET /orders/{id} with non-existing ID returns 404 Not Found")
+    void testGetOrderById_WithNonExistingId_Returns404() throws Exception {
+        String nonExistingId = "507f1f77bcf86cd799439011";
+        mockMvc.perform(get("/orders/{id}", nonExistingId)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").exists())
+                .andExpect(jsonPath("$.status").value(404));
+    }
+
+    @Test
+    @DisplayName("GET /orders/{id} with invalid ID format returns 404 Not Found")
+    void testGetOrderById_WithInvalidIdFormat_Returns404() throws Exception {
+        String invalidId = "invalid-id-123";
+
+        mockMvc.perform(get("/orders/{id}", invalidId)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound());
     }
 
 
