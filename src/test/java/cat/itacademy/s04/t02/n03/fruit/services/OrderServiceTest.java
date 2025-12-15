@@ -265,6 +265,110 @@ class OrderServiceTest {
         verify(orderRepository, times(1)).findById(orderId);
     }
 
+    @Test
+    @DisplayName("updateOrder with valid ID updates and returns order")
+    void testUpdateOrder_WithValidId_UpdatesAndReturnsOrder() {
+        String orderId = "existing-id-123";
+
+        Order existingOrder = new Order();
+        existingOrder.setId(orderId);
+        existingOrder.setClientName("Old Client");
+        existingOrder.setDeliveryDate(LocalDate.now().plusDays(1));
+        existingOrder.setItems(List.of(new OrderItem("Apple", 5)));
+
+        OrderRequestDTO updateRequest = new OrderRequestDTO();
+        updateRequest.setClientName("New Client");
+        updateRequest.setDeliveryDate(LocalDate.now().plusDays(3));
+        updateRequest.setItems(List.of(new OrderItemDTO("Orange", 10)));
+
+        Order updatedOrder = new Order();
+        updatedOrder.setId(orderId);
+        updatedOrder.setClientName("New Client");
+        updatedOrder.setDeliveryDate(LocalDate.now().plusDays(3));
+        updatedOrder.setItems(List.of(new OrderItem("Orange", 10)));
+
+        Order savedOrder = new Order();
+        savedOrder.setId(orderId);
+        savedOrder.setClientName("New Client");
+        savedOrder.setDeliveryDate(LocalDate.now().plusDays(3));
+        savedOrder.setItems(List.of(new OrderItem("Orange", 10)));
+
+        OrderResponseDTO responseDTO = new OrderResponseDTO();
+        responseDTO.setId(orderId);
+        responseDTO.setClientName("New Client");
+        responseDTO.setDeliveryDate(LocalDate.now().plusDays(3));
+        responseDTO.setItems(List.of(new OrderItemDTO("Orange", 10)));
+
+        when(orderRepository.findById(orderId)).thenReturn(java.util.Optional.of(existingOrder));
+        when(orderMapper.toEntity(updateRequest)).thenReturn(updatedOrder);
+        when(orderRepository.save(any(Order.class))).thenReturn(savedOrder);
+        when(orderMapper.toResponseDTO(savedOrder)).thenReturn(responseDTO);
+
+        OrderResponseDTO result = orderService.updateOrder(orderId, updateRequest);
+
+        assertThat(result).isNotNull();
+        assertThat(result.getId()).isEqualTo(orderId);
+        assertThat(result.getClientName()).isEqualTo("New Client");
+        assertThat(result.getDeliveryDate()).isEqualTo(LocalDate.now().plusDays(3));
+        assertThat(result.getItems()).hasSize(1);
+        assertThat(result.getItems().get(0).getFruitName()).isEqualTo("Orange");
+
+        verify(orderRepository, times(1)).findById(orderId);
+        verify(orderRepository, times(1)).save(any(Order.class));
+        verify(orderMapper, times(1)).toEntity(updateRequest);
+        verify(orderMapper, times(1)).toResponseDTO(savedOrder);
+    }
+
+    @Test
+    @DisplayName("updateOrder with non-existing ID throws OrderNotFoundException")
+    void testUpdateOrder_WithNonExistingId_ThrowsException() {
+        String nonExistingId = "non-existing-id";
+        OrderRequestDTO updateRequest = validOrderRequest;
+
+        when(orderRepository.findById(nonExistingId)).thenReturn(java.util.Optional.empty());
+
+        assertThatThrownBy(() -> orderService.updateOrder(nonExistingId, updateRequest))
+                .isInstanceOf(OrderNotFoundException.class)
+                .hasMessageContaining("Order not found with id: " + nonExistingId);
+
+        verify(orderRepository, times(1)).findById(nonExistingId);
+        verify(orderRepository, never()).save(any());
+        verify(orderMapper, never()).toEntity(any());
+        verify(orderMapper, never()).toResponseDTO(any());
+    }
+
+    @Test
+    @DisplayName("updateOrder calls repository.findById() and save()")
+    void testUpdateOrder_CallsRepositoryMethods() {
+        String orderId = "test-id-789";
+
+        Order existingOrder = new Order();
+        existingOrder.setId(orderId);
+        existingOrder.setClientName("Old Client");
+
+        Order updatedOrder = new Order();
+        updatedOrder.setId(orderId);
+        updatedOrder.setClientName("New Client");
+
+        OrderResponseDTO responseDTO = new OrderResponseDTO();
+        responseDTO.setId(orderId);
+        responseDTO.setClientName("New Client");
+
+        when(orderRepository.findById(orderId)).thenReturn(java.util.Optional.of(existingOrder));
+        when(orderMapper.toEntity(validOrderRequest)).thenReturn(updatedOrder);
+        when(orderRepository.save(any(Order.class))).thenReturn(updatedOrder);
+        when(orderMapper.toResponseDTO(updatedOrder)).thenReturn(responseDTO);
+
+        orderService.updateOrder(orderId, validOrderRequest);
+
+        ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
+        verify(orderRepository, times(1)).findById(orderId);
+        verify(orderRepository, times(1)).save(orderCaptor.capture());
+
+        Order capturedOrder = orderCaptor.getValue();
+        assertThat(capturedOrder.getId()).isEqualTo(orderId);
+    }
+
     private OrderRequestDTO createValidOrderRequest() {
         OrderItemDTO item1 = new OrderItemDTO();
         item1.setFruitName("Apple");
@@ -281,5 +385,6 @@ class OrderServiceTest {
 
         return orderRequest;
     }
+
 
 }

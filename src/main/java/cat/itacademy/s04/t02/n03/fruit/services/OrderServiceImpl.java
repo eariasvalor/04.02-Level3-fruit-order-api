@@ -44,4 +44,18 @@ public class OrderServiceImpl implements OrderService {
 
         return orderMapper.toResponseDTO(order);
     }
+
+    @Override
+    public OrderResponseDTO updateOrder(String id, OrderRequestDTO orderRequestDTO) {
+        orderRepository.findById(id)
+                .orElseThrow(() -> new OrderNotFoundException(id));
+
+        Order updatedOrder = orderMapper.toEntity(orderRequestDTO);
+
+        updatedOrder.setId(id);
+
+        Order savedOrder = orderRepository.save(updatedOrder);
+
+        return orderMapper.toResponseDTO(savedOrder);
+    }
 }

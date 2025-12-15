@@ -20,6 +20,7 @@ import java.util.List;
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @DisplayName("Order Controller Integration Tests - Create Order")
@@ -334,6 +335,207 @@ class OrderControllerIntegrationTest extends BaseIntegrationTest {
         mockMvc.perform(get("/orders/{id}", invalidId)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("PUT /orders/{id} with valid data returns 200 OK")
+    void testUpdateOrder_WithValidData_Returns200() throws Exception {
+        OrderRequestDTO originalOrder = createValidOrderRequest();
+
+        String responseBody = mockMvc.perform(post("/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(originalOrder)))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        OrderResponseDTO createdOrder = objectMapper.readValue(responseBody, OrderResponseDTO.class);
+        String orderId = createdOrder.getId();
+
+        OrderRequestDTO updatedOrder = createValidOrderRequest();
+        updatedOrder.setClientName("Jane Smith Updated");
+        updatedOrder.setDeliveryDate(LocalDate.now().plusDays(3));
+
+        mockMvc.perform(put("/orders/{id}", orderId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updatedOrder)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(orderId))
+                .andExpect(jsonPath("$.clientName").value("Jane Smith Updated"))
+                .andExpect(jsonPath("$.deliveryDate").value(LocalDate.now().plusDays(3).toString()));
+    }
+
+    @Test
+    @DisplayName("PUT /orders/{id} returns updated order data")
+    void testUpdateOrder_ReturnsUpdatedData() throws Exception {
+        OrderRequestDTO originalOrder = createValidOrderRequest();
+
+        String responseBody = mockMvc.perform(post("/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(originalOrder)))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        OrderResponseDTO createdOrder = objectMapper.readValue(responseBody, OrderResponseDTO.class);
+        String orderId = createdOrder.getId();
+
+        OrderItemDTO newItem = new OrderItemDTO();
+        newItem.setFruitName("Orange");
+        newItem.setQuantityInKilos(10);
+
+        OrderRequestDTO updatedOrder = new OrderRequestDTO();
+        updatedOrder.setClientName("Updated Client");
+        updatedOrder.setDeliveryDate(LocalDate.now().plusDays(5));
+        updatedOrder.setItems(List.of(newItem));
+
+        mockMvc.perform(put("/orders/{id}", orderId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updatedOrder)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.clientName").value("Updated Client"))
+                .andExpect(jsonPath("$.items", hasSize(1)))
+                .andExpect(jsonPath("$.items[0].fruitName").value("Orange"))
+                .andExpect(jsonPath("$.items[0].quantityInKilos").value(10));
+    }
+
+    @Test
+    @DisplayName("PUT /orders/{id} with non-existing ID returns 404 Not Found")
+    void testUpdateOrder_WithNonExistingId_Returns404() throws Exception {
+        String nonExistingId = "507f1f77bcf86cd799439011";
+        OrderRequestDTO updateRequest = createValidOrderRequest();
+
+        mockMvc.perform(put("/orders/{id}", nonExistingId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").exists())
+                .andExpect(jsonPath("$.status").value(404));
+    }
+
+    @Test
+    @DisplayName("PUT /orders/{id} with invalid clientName returns 400 Bad Request")
+    void testUpdateOrder_WithInvalidClientName_Returns400() throws Exception {
+        OrderRequestDTO originalOrder = createValidOrderRequest();
+
+        String responseBody = mockMvc.perform(post("/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(originalOrder)))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        OrderResponseDTO createdOrder = objectMapper.readValue(responseBody, OrderResponseDTO.class);
+        String orderId = createdOrder.getId();
+
+        OrderRequestDTO invalidUpdate = createValidOrderRequest();
+        invalidUpdate.setClientName("");
+
+        mockMvc.perform(put("/orders/{id}", orderId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(invalidUpdate)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    @Test
+    @DisplayName("PUT /orders/{id} with past date returns 400 Bad Request")
+    void testUpdateOrder_WithPastDate_Returns400() throws Exception {
+        OrderRequestDTO originalOrder = createValidOrderRequest();
+
+        String responseBody = mockMvc.perform(post("/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(originalOrder)))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        OrderResponseDTO createdOrder = objectMapper.readValue(responseBody, OrderResponseDTO.class);
+        String orderId = createdOrder.getId();
+
+        OrderRequestDTO invalidUpdate = createValidOrderRequest();
+        invalidUpdate.setDeliveryDate(LocalDate.now().minusDays(1));
+
+        mockMvc.perform(put("/orders/{id}", orderId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(invalidUpdate)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    @Test
+    @DisplayName("PUT /orders/{id} with today's date returns 400 Bad Request")
+    void testUpdateOrder_WithTodayDate_Returns400() throws Exception {
+        OrderRequestDTO originalOrder = createValidOrderRequest();
+
+        String responseBody = mockMvc.perform(post("/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(originalOrder)))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        OrderResponseDTO createdOrder = objectMapper.readValue(responseBody, OrderResponseDTO.class);
+        String orderId = createdOrder.getId();
+
+        OrderRequestDTO invalidUpdate = createValidOrderRequest();
+        invalidUpdate.setDeliveryDate(LocalDate.now());
+
+        mockMvc.perform(put("/orders/{id}", orderId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(invalidUpdate)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    @Test
+    @DisplayName("PUT /orders/{id} with empty items returns 400 Bad Request")
+    void testUpdateOrder_WithEmptyItems_Returns400() throws Exception {
+        OrderRequestDTO originalOrder = createValidOrderRequest();
+
+        String responseBody = mockMvc.perform(post("/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(originalOrder)))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        OrderResponseDTO createdOrder = objectMapper.readValue(responseBody, OrderResponseDTO.class);
+        String orderId = createdOrder.getId();
+
+        OrderRequestDTO invalidUpdate = createValidOrderRequest();
+        invalidUpdate.setItems(new ArrayList<>());
+
+        mockMvc.perform(put("/orders/{id}", orderId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(invalidUpdate)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    @Test
+    @DisplayName("PUT /orders/{id} with invalid item data returns 400 Bad Request")
+    void testUpdateOrder_WithInvalidItemData_Returns400() throws Exception {
+        OrderRequestDTO originalOrder = createValidOrderRequest();
+
+        String responseBody = mockMvc.perform(post("/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(originalOrder)))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        OrderResponseDTO createdOrder = objectMapper.readValue(responseBody, OrderResponseDTO.class);
+        String orderId = createdOrder.getId();
+
+        OrderRequestDTO invalidUpdate = createValidOrderRequest();
+        invalidUpdate.getItems().get(0).setQuantityInKilos(-5);
+
+        mockMvc.perform(put("/orders/{id}", orderId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(invalidUpdate)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").exists());
     }
 
 
