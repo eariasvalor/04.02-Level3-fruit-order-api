@@ -368,3 +368,19 @@ src/
 - Maven 3.8+
 - Docker 20.10+
 - MongoDB 7.0 (optional with Docker)
+  
+---
+## 📊 MySQL vs MongoDB Comparison
+
+Want to understand the differences between Level 2 (MySQL) and Level 3 (MongoDB)?
+
+👉 **[Read the complete comparison](./Documentation/LEVEL_COMPARISON.md)**
+
+Topics covered:
+- Database architecture differences
+- Data modeling approaches
+- CRUD operations comparison
+- Performance considerations
+- When to use each database
+- Testing strategies
+
